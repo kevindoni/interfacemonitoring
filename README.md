@@ -17,6 +17,6 @@
 
 ## Installation
 
-Copy **cpuload.php** to folder **system/plugin/**
+Copy **monitor_interface.php** to folder **system/plugin/**
 
-Copy **ui/cpuload.tpl** to folder **system/plugin/ui/**
+Copy **ui/monitor_interface.tpl** to folder **system/plugin/ui/**

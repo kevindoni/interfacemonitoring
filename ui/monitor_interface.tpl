@@ -174,8 +174,8 @@ createChart(); // Create the chart on page load
 
 <script>
   window.addEventListener('DOMContentLoaded', function() {
-    var portalLink = "https://github.com/focuslinkstech";
-    $('#version').html('MikroTik Monitor | Ver: 1.0 | by: <a href="' + portalLink + '">Focuslinks Tech</a>');
+    var portalLink = "https://github.com/kevindoni";
+    $('#version').html('Interface Monitor | Ver: 1.0 | by: <a href="' + portalLink + '">Kevin Doni</a>');
   });
 </script>
 

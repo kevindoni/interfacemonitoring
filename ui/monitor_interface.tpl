@@ -1,30 +1,42 @@
 {include file="sections/header.tpl"}
-    <form class="form-horizontal" method="post" role="form" action="{$_url}plugin/mikrotik_monitor_ui">
-      <ul class="nav nav-tabs"> {foreach $routers as $r} <li role="presentation" {if $r['id']==$router}class="active" {/if}>
-          <a href="{$_url}plugin/mikrotik_monitor_ui/{$r['id']}">{$r['name']}</a>
-        </li> {/foreach} </ul>
-    </form>
+<style>
+  .table-bordered {
+      width: 100%;
+      max-width: 100%;
+      table-layout: fixed;
+  }
+  .table-bordered th, .table-bordered td {
+      width: auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: none;
+      border: none;
+      padding: 10px;
+      vertical-align: middle;
+      text-align: center;
+  }
+</style>
 <div class="container mt-5">
   <div class="card">
     <div class="card-header">
     </div>
     <div class="card-body">
       <div class="form-group">
-        <label for="interface">Interface</label>
       </div>
       <div class="table-responsive mt-4">
         <table class="table table-bordered">
           <thead>
             <tr>
               <th>
-                <select name="interface" id="interface" class="form-control custom-select" onchange="updateTrafficValues()">
-                    {foreach $interfaces as $interface}
-                        <option value="{$interface}">{$interface}</option>
-                    {/foreach}
+                <select name="selectedNetworkInterface" id="selectedNetworkInterface" class="form-control custom-select" onchange="updateTrafficValues()">
+                  {foreach from=$interfaces item=interface}
+                    <option value="{$interface.name|escape:'html'}">{$interface.name}</option>
+                  {/foreach}
                 </select>
               </th>
-              <th id="tabletx"><strong>TX:</strong> 0 B</th>
-              <th id="tablerx"><strong>RX:</strong> 0 B</th>
+                  <th id="tabletx"><i class="fa fa-download"></i></th>
+                  <th id="tablerx"><i class="fa fa-upload"></i></th>
             </tr>
           </thead>
         </table>
@@ -33,7 +45,15 @@
     </div>
   </div>
 </div>
-
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.23/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.23/css/jquery.dataTables.min.css"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.3/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <script>
@@ -43,143 +63,159 @@
     rxData: []
   };
 
-function createChart() {
-  var options = {
-    chart: {
-      height: 350,
-      type: 'area',
-      animations: {
-        enabled: true,
-        easing: 'linear',
-        speed: 200,
-        animateGradually: {
+  function createChart() {
+    var options = {
+      chart: {
+        height: 350,
+        type: 'area',
+        animations: {
           enabled: true,
-          delay: 150
+          easing: 'linear',
+          speed: 200,
+          animateGradually: {
+            enabled: true,
+            delay: 150
+          },
+          dynamicAnimation: {
+            enabled: true,
+            speed: 200
+          }
         },
-        dynamicAnimation: {
-          enabled: true,
-          speed: 200
+        events: {
+          mounted: function(chartContext, config) {
+            // Initially load data and set up refresh interval
+            updateTrafficValues();
+            setInterval(updateTrafficValues, 3000);
+          }
         }
       },
-      events: {
-        mounted: function(chartContext, config) {
-          // Initially load data and set up refresh interval
-          updateTrafficValues();
-          setInterval(updateTrafficValues, 3000);
-        }
-      }
-    },
-    stroke: {
-      curve: 'smooth'
-    },
-    series: [{
-      name: 'Upload',
-      data: chartData.txData
-    }, {
-      name: 'Download',
-      data: chartData.rxData
-    }],
-    xaxis: {
-      type: 'datetime',
-      labels: {
-        formatter: function(value) {
-          return new Date(value).toLocaleTimeString();
-        }
-      }
-    },
-    yaxis: {
-      title: {
-        text: 'Lalu Lintas Langsung'
+      stroke: {
+        curve: 'smooth'
       },
-      labels: {
+      series: [{
+        name: 'Upload',
+        data: chartData.txData
+      }, {
+        name: 'Download',
+        data: chartData.rxData
+      }],
+      xaxis: {
+        type: 'datetime',
+        labels: {
+          formatter: function(value) {
+            return new Date(value).toLocaleTimeString();
+          }
+        }
+      },
+      yaxis: {
+        title: {
+          text: 'Lalu Lintas Langsung'
+        },
+        labels: {
+          formatter: function(value) {
+            return formatBytes(value);
+          }
+        }
+      },
+      tooltip: {
+        x: {
+          format: 'HH:mm:ss'
+        },
+        y: {
+          formatter: function(value) {
+            return formatBytes(value) + 'ps';
+          }
+        }
+      },
+      dataLabels: {
+        enabled: true,
         formatter: function(value) {
           return formatBytes(value);
         }
       }
-    },
-    tooltip: {
-      x: {
-        format: 'HH:mm:ss'
-      },
-      y: {
-        formatter: function(value) {
-          return formatBytes(value) + 'ps';
-        }
-      }
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: function(value) {
-        return formatBytes(value);
-      }
-    }
-  };
-  chart = new ApexCharts(document.querySelector("#chart"), options);
-  chart.render();
-}
-
-function formatBytes(bytes) {
-  if (bytes === 0) {
-    return '0 B';
+    };
+    chart = new ApexCharts(document.querySelector("#chart"), options);
+    chart.render();
   }
-  var k = 1024;
-  var sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-  var i = Math.floor(Math.log(bytes) / Math.log(k));
-  var formattedValue = parseFloat((bytes / Math.pow(k, i)).toFixed(2));
-  return formattedValue + ' ' + sizes[i];
-}
+
+  function formatBytes(bytes) {
+    if (bytes === 0) {
+      return '0 B';
+    }
+    var k = 1024;
+    var sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    var i = Math.floor(Math.log(bytes) / Math.log(k));
+    var formattedValue = parseFloat((bytes / Math.pow(k, i)).toFixed(2));
+    return formattedValue + ' ' + sizes[i];
+  }
 
 function updateTrafficValues() {
-  var interface = $('#interface').val();
-  $('#selectedInterface').text(interface);
+  var selectedInterface = $('#selectedNetworkInterface').val(); // Mengambil nilai interface yang dipilih
   $.ajax({
-    url: '{$_url}plugin/monitor_traffic/{$router}',
+    url: '{$_url}plugin/monitor_traffic/{$router}', // Pastikan URL ini sesuai dengan konfigurasi server Anda
+    type: 'GET',
     dataType: 'json',
     data: {
-      interface: interface
+      interface: selectedInterface
     },
     success: function(data) {
-      var timestamp = new Date().getTime();
-      var txData = data.rows.tx;
-      var rxData = data.rows.rx;
-      if (txData.length > 0 && rxData.length > 0) {
-        var TX = parseInt(txData[0]);
-        var RX = parseInt(rxData[0]);
-        chartData.txData.push({ x: timestamp, y: TX });
-        chartData.rxData.push({ x: timestamp, y: RX });
-        var maxDataPoints = 10;
-        if (chartData.txData.length > maxDataPoints) {
-          chartData.txData.shift();
-          chartData.rxData.shift();
+      if (data && data.rows) {
+        var timestamp = new Date().getTime();
+        var txData = data.rows.tx;
+        var rxData = data.rows.rx;
+
+        // Memperbarui data pada grafik
+        if (txData.length > 0 && rxData.length > 0) {
+          var TX = parseInt(txData[0]);
+          var RX = parseInt(rxData[0]);
+
+          // Menambahkan data baru ke chartData
+          chartData.txData.push({ x: timestamp, y: TX });
+          chartData.rxData.push({ x: timestamp, y: RX });
+
+          // Memastikan hanya menyimpan maksimal 10 data points
+          var maxDataPoints = 10;
+          if (chartData.txData.length > maxDataPoints) {
+            chartData.txData.shift();
+            chartData.rxData.shift();
+          }
+
+          // Memperbarui seri pada grafik
+          chart.updateSeries([{
+            name: 'Upload',
+            data: chartData.txData
+          }, {
+            name: 'Download',
+            data: chartData.rxData
+          }]);
         }
-        chart.updateSeries([{
-          name: 'Upload',
-          data: chartData.txData
-        }, {
-          name: 'Download',
-          data: chartData.rxData
-        }]);
-        document.getElementById("tabletx").textContent = formatBytes(TX);
-        document.getElementById("tablerx").textContent = formatBytes(RX);
+
+        // Memperbarui teks pada tabel TX dan RX dengan ikon
+        document.getElementById("tabletx").innerHTML = '<i class="fas fa-upload"></i>  ' + formatBytes(TX);
+        document.getElementById("tablerx").innerHTML = '<i class="fas fa-download"></i>  ' + formatBytes(RX);
       } else {
-        document.getElementById("tabletx").textContent = "0";
-        document.getElementById("tablerx").textContent = "0";
+        // Jika tidak ada data, set nilai ke 0
+        document.getElementById("tabletx").textContent = 'TX: 0 B';
+        document.getElementById("tablerx").textContent = 'RX: 0 B';
       }
     },
     error: function(XMLHttpRequest, textStatus, errorThrown) {
-      console.error("Status: " + textStatus + " request: " + XMLHttpRequest);
-      console.error("Error: " + errorThrown);
+      console.error("Status: " + textStatus + "; Error: " + errorThrown);
+      // Menampilkan pesan error atau default value jika request gagal
+      document.getElementById("tabletx").textContent = 'TX: Error';
+      document.getElementById("tablerx").textContent = 'RX: Error';
     }
   });
 }
 
-createChart(); // Create the chart on page load
+
+  createChart(); // Create the chart on page load
 </script>
 
 <script>
   window.addEventListener('DOMContentLoaded', function() {
-    var portalLink = "https://github.com/kevindoni";
-    $('#version').html('Interface Monitor | Ver: 1.0 | by: <a href="' + portalLink + '">Kevin Doni</a>');
+    var portalLink = "https://github.com/focuslinkstech";
+    $('#version').html('MikroTik Monitor | Ver: 1.0 | by: <a href="' + portalLink + '">Focuslinks Tech</a>');
   });
 </script>
 

@@ -1,9 +1,8 @@
 <?php
 
 use PEAR2\Net\RouterOS;
-use PEAR2\Net\RouterOS\Client;
 
-register_menu(" Interface Monitor", true, "interface_ui", 'AFTER_SETTINGS', 'ion-ios-pulse', "New", "green");
+register_menu(" Interface Monitor", true, "interface_ui", 'AFTER_SETTINGS', 'ion-ios-pulse', "Hot", "red");
 
 function interface_ui() {
     global $ui, $routes;
@@ -12,8 +11,17 @@ function interface_ui() {
     $ui->assign('_system_menu', 'Interface Monitor');
     $admin = Admin::_info();
     $ui->assign('_admin', $admin);
+
     $routers = ORM::for_table('tbl_routers')->where('enabled', '1')->find_many();
     $routerId = $routes['2'] ?? $routers[0]['id'];
+
+    // Fetch the interfaces
+    $interfaces = monitorRouterGetInterfaces();
+
+    $ui->assign('routers', $routers);
+    $ui->assign('router', $routerId);
+    $ui->assign('interfaces', $interfaces); // Assign interfaces to template
+
     $ui->assign('xheader', '
         <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css">
         <style>
@@ -59,11 +67,6 @@ function interface_ui() {
         </style>
     ');
 
-    $ui->assign('routers', $routers);
-    $ui->assign('router', $routerId);
-    $ui->assign('interfaces', getInterfaceList());
-
-    // Tampilkan template monitor_interface.tpl menggunakan Smarty
     $ui->display('monitor_interface.tpl');
 }
 
@@ -72,8 +75,9 @@ function interface_get_data() {
     $routerId = $routes['2'];
     $mikrotik = ORM::for_table('tbl_routers')->where('enabled', '1')->find_one($routerId);
     $client = new RouterOS\Client($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-    $traffic = $client->sendSync(new RouterOS\Request('/interface/print'));
-    
+
+    // Fungsi untuk mendapatkan daftar interface
+    $interfaceList = monitorRouterGetInterfaces();
 
     // Fungsi untuk memformat bytes
     function formatBytes($bytes, $precision = 2)
@@ -242,23 +246,21 @@ function traffic_update()
     }
 }
 
-function getInterfaceList()
-{
+
+function monitorRouterGetInterfaces() {
     global $routes;
-    $router = $routes['2'];
-    $mikrotik = ORM::for_table('tbl_routers')->where('enabled', '1')->find_one($router);
+    $routerId = $routes['2'] ?? null;
+    $mikrotik = ORM::for_table('tbl_routers')->where('enabled', '1')->find_one($routerId);
     $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
     $interfaces = $client->sendSync(new RouterOS\Request('/interface/print'));
 
-    $interfaceList = array();
+    $interfaceList = [];
     foreach ($interfaces as $interface) {
         $name = $interface->getProperty('name');
-        if (!empty($name)) {
-            // Escape HTML special characters to prevent issues with characters like < and >
-            $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
-            $interfaceList[] = $safeName;
-        }
+        // Menghapus karakter khusus < dan >
+        $name = str_replace(['<', '>'], '', $name);
+        $interfaceList[] = ['name' => $name];
     }
-
     return $interfaceList;
 }
+

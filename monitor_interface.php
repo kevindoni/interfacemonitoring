@@ -212,9 +212,11 @@ function monitorRouterGetInterfaces() {
     $interfaceList = [];
     foreach ($interfaces as $interface) {
         $name = $interface->getProperty('name');
-        // Menghapus karakter khusus < dan >
+        // Menghapus karakter khusus < dan > dan tidak memasukkan interface PPPoE
         $name = str_replace(['<', '>'], '', $name);
-        $interfaceList[] = ['name' => $name];
+        if (!str_contains($name, 'pppoe')) { // Cek apakah nama interface mengandung 'pppoe'
+            $interfaceList[] = ['name' => $name];
+        }
     }
     return $interfaceList;
 }

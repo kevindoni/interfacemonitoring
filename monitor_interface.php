@@ -2,9 +2,9 @@
 
 use PEAR2\Net\RouterOS;
 
-register_menu(" Interface Monitor", true, "interface_ui", 'AFTER_SETTINGS', 'ion-ios-pulse', "Hot", "red");
+register_menu(" Interface Monitor", true, "monitor_interface_ui", 'AFTER_SETTINGS', 'ion-ios-pulse', "Hot", "red");
 
-function interface_ui() {
+function monitor_interface_ui() {
     global $ui, $routes;
     _admin();
     $ui->assign('_title', 'Interface Monitor');
@@ -22,55 +22,10 @@ function interface_ui() {
     $ui->assign('router', $routerId);
     $ui->assign('interfaces', $interfaces); // Assign interfaces to template
 
-    $ui->assign('xheader', '
-        <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.min.css">
-        <style>
-            table {
-                border-collapse: collapse;
-                width: 100%;
-            }
-            th, td {
-                border: 1px solid #ddd;
-                padding: 8px;
-                text-align: left;
-            }
-            th.custom-class {
-                background-color: #f2f2f2;
-                color: #000;
-                font-weight: bold;
-            }
-            tr.even-row {
-                background-color: #f2f2f2;
-            }
-            tr.custom-class {
-                color: blue;
-                font-weight: bold;
-            }
-            #ppp-table th, #ppp-table td {
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                width: 100px;
-            }
-            .chart-canvas {
-                width: 100px;
-                height: 80px;
-            }
-            .chart-canvas {
-                width: 400px;
-                height: 200px;
-            }
-            .form-control {
-                width: 200px;
-                height: 30px;
-            }
-        </style>
-    ');
-
     $ui->display('monitor_interface.tpl');
 }
 
-function interface_get_data() {
+function monitor_interface_get_data() {
     global $routes;
     $routerId = $routes['2'];
     $mikrotik = ORM::for_table('tbl_routers')->where('enabled', '1')->find_one($routerId);
@@ -263,4 +218,3 @@ function monitorRouterGetInterfaces() {
     }
     return $interfaceList;
 }
-

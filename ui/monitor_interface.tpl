@@ -31,7 +31,7 @@
               <th>
                 <select name="selectedNetworkInterface" id="selectedNetworkInterface" class="form-control custom-select" onchange="updateTrafficValues()">
                   {foreach from=$interfaces item=interface}
-                    {if !strstr($interface.name, 'pppoe')} <!-- Tambahkan kondisi untuk menyaring 'pppoe' -->
+                    {if !strstr($interface.name, 'pppoe') && !strstr($interface.name, 'ovpn') && !strstr($interface.name, 'l2tp') && !strstr($interface.name, 'vlan')} <!-- Tambahkan kondisi untuk menyaring 'pppoe', 'ovpn', 'l2tp', 'vlan' -->
                       <option value="{$interface.name|escape:'html'}">{$interface.name}</option>
                     {/if}
                   {/foreach}
@@ -208,8 +208,8 @@ function updateTrafficValues() {
 
 <script>
   window.addEventListener('DOMContentLoaded', function() {
-    var portalLink = "https://github.com/focuslinkstech";
-    $('#version').html('MikroTik Monitor | Ver: 1.0 | by: <a href="' + portalLink + '">Focuslinks Tech</a>');
+    var portalLink = "https://github.com/kevindoni";
+    $('#version').html('Interfacek Monitor | Ver: 1.0 | by: <a href="' + portalLink + '">Kevin Doni</a>');
   });
 </script>
 

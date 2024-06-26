@@ -2,9 +2,9 @@
 
 use PEAR2\Net\RouterOS;
 
-register_menu(" Interface Monitor", true, "monitor_interface_ui", 'AFTER_SETTINGS', 'ion-ios-pulse', "Hot", "red");
+register_menu(" Interface Monitor", true, "monitorRouterInterface", 'AFTER_SETTINGS', 'ion-ios-pulse', "Hot", "red");
 
-function monitor_interface_ui() {
+function monitorRouterInterface() {
     global $ui, $routes;
     _admin();
     $ui->assign('_title', 'Interface Monitor');
@@ -25,107 +25,39 @@ function monitor_interface_ui() {
     $ui->display('monitor_interface.tpl');
 }
 
-function monitor_interface_get_data() {
+function monitorRouterFormatBytes($bytes, $precision = 2)
+{
+    $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    $bytes = max($bytes, 0);
+    $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+    $pow = min($pow, count($units) - 1);
+    $bytes /= pow(1024, $pow);
+    return round($bytes, $precision) . ' ' . $units[$pow];
+}
+
+
+
+
+function monitorRouterGetInterfaces() {
     global $routes;
-    $routerId = $routes['2'];
+    $routerId = $routes['2'] ?? null;
     $mikrotik = ORM::for_table('tbl_routers')->where('enabled', '1')->find_one($routerId);
-    $client = new RouterOS\Client($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+    $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+    $interfaces = $client->sendSync(new RouterOS\Request('/interface/print'));
 
-    // Fungsi untuk mendapatkan daftar interface
-    $interfaceList = monitorRouterGetInterfaces();
-
-    // Fungsi untuk memformat bytes
-    function formatBytes($bytes, $precision = 2)
-    {
-        $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-        $bytes = max($bytes, 0);
-        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-        $pow = min($pow, count($units) - 1);
-        $bytes /= pow(1024, $pow);
-        return round($bytes, $precision) . ' ' . $units[$pow];
+    $interfaceList = [];
+    foreach ($interfaces as $interface) {
+        $name = $interface->getProperty('name');
+        // Menghapus karakter khusus < dan >
+        $name = str_replace(['<', '>'], '', $name);
+        $interfaceList[] = ['name' => $name];
     }
-
-    // Fungsi untuk mendapatkan data interface
-    function monitor_traffic($interface)
-    {
-        global $routes;
-        $router = $routes['2'];
-        $mikrotik = ORM::for_table('tbl_routers')->where('enabled', '1')->find_one($router);
-        $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-
-        try {
-            $results = $client->sendSync(
-                (new RouterOS\Request('/interface/monitor-traffic'))
-                    ->setArgument('interface', $interface)
-                    ->setArgument('once', '')
-            );
-
-            $rows = [];
-            $labels = [];
-
-            foreach ($results as $result) {
-                $ftx = $result->getProperty('tx-bits-per-second');
-                $frx = $result->getProperty('rx-bits-per-second');
-
-                $rows[] = [
-                    'tx' => $ftx,
-                    'rx' => $frx
-                ];
-                $labels[] = date('H:i:s');
-            }
-
-            $result = [
-                'labels' => $labels,
-                'rows' => $rows
-            ];
-
-            return $result;
-        } catch (Exception $e) {
-            return ['error' => $e->getMessage()];
-        }
-    }
-
-    // Fungsi untuk memperbarui data traffic
-    function traffic_update()
-    {
-        global $routes;
-        $router = $routes['2'];
-        $mikrotik = ORM::for_table('tbl_routers')->where('enabled', '1')->find_one($router);
-        $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-        $traffic = $client->sendSync(new RouterOS\Request('/interface/print'));
-
-        $interfaceData = [];
-        foreach ($traffic as $interface) {
-            $name = $interface->getProperty('name');
-            // Skip interfaces with missing names
-            if (empty($name)) {
-                continue;
-            }
-
-            $txBytes = intval($interface->getProperty('tx-byte'));
-            $rxBytes = intval($interface->getProperty('rx-byte'));
-            $name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
-            $interfaceData[] = [
-                'name' => $name,
-                'status' => $interface->getProperty('running') === 'true' ? '
-                <b>Internet : </b> <small class="label bg-green">up</small>' : '
-                <b>Internet : </b> <small class="label bg-red">down</small>',
-                'tx' => formatBytes($txBytes),
-                'rx' => formatBytes($rxBytes),
-                'total' => formatBytes($txBytes + $rxBytes)
-            ];
-        }
-    }
-
-    // Kembalikan hasil jika perlu
     return $interfaceList;
 }
 
-function monitor_traffic()
+function monitorRouterTraffic()
 {
     $interface = $_GET["interface"]; // Ambil interface dari parameter GET
-
-    // Contoh koneksi ke MikroTik menggunakan library tertentu (misalnya menggunakan ORM dan MikroTik API wrapper)
     global $routes;
     $router = $routes['2'];
     $mikrotik = ORM::for_table('tbl_routers')->where('enabled', '1')->find_one($router);
@@ -154,12 +86,16 @@ function monitor_traffic()
             $labels[] = $timestamp; // Tambahkan timestamp ke dalam array labels
         }
 
+        // Hitung total harian dari TX dan RX
+        $dailyTotal = monitorRouterCalculateDailyTotal($interface);
+
         $result = array(
             'labels' => $labels,
             'rows' => array(
                 'tx' => $rows,
                 'rx' => $rows2
-            )
+            ),
+            'daily_total' => $dailyTotal  // Menyertakan total harian dalam respons JSON
         );
     } catch (Exception $e) {
         $result = array('error' => $e->getMessage());
@@ -170,53 +106,31 @@ function monitor_traffic()
     echo json_encode($result);
 }
 
-function traffic_update()
-{
+function monitorRouterCalculateDailyTotal($interface) {
     global $routes;
     $router = $routes['2'];
     $mikrotik = ORM::for_table('tbl_routers')->where('enabled', '1')->find_one($router);
     $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-    $traffic = $client->sendSync(new RouterOS\Request('/interface/print'));
 
-    $interfaceData = [];
-    foreach ($traffic as $interface) {
-        $name = $interface->getProperty('name');
-        // Skip interfaces with missing names
-        if (empty($name)) {
-            continue;
-        }
+    // Menggunakan API MikroTik untuk mengambil data lalu lintas
+    $request = new RouterOS\Request('/interface/monitor-traffic');
+    $request->setArgument('interface', $interface);
+    $request->setArgument('once', '');
+    $request->setArgument('duration', '1d'); // Durasi untuk mengambil data lalu lintas selama satu hari
 
-        $txBytes = intval($interface->getProperty('tx-byte'));
-        $rxBytes = intval($interface->getProperty('rx-byte'));
-        $name = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
-        $interfaceData[] = [
-            'name' => $name,
-            'status' => $interface->getProperty('running') === 'true' ? '
-            <b>Internet : </b> <small class="label bg-green">up</small>' : '
-            <b>Internet : </b> <small class="label bg-red">down</small>',
-            'tx' => mikrotik_monitor_formatBytes($txBytes),
-            'rx' => mikrotik_monitor_formatBytes($rxBytes),
-            'total' => mikrotik_monitor_formatBytes($txBytes + $rxBytes)
-        ];
+    $results = $client->sendSync($request);
+
+    $totalTx = 0;
+    $totalRx = 0;
+
+    foreach ($results as $result) {
+        $totalTx += $result->getProperty('tx-bits-per-second');
+        $totalRx += $result->getProperty('rx-bits-per-second');
     }
-}
 
-
-function monitorRouterGetInterfaces() {
-    global $routes;
-    $routerId = $routes['2'] ?? null;
-    $mikrotik = ORM::for_table('tbl_routers')->where('enabled', '1')->find_one($routerId);
-    $client = Mikrotik::getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-    $interfaces = $client->sendSync(new RouterOS\Request('/interface/print'));
-
-    $interfaceList = [];
-    foreach ($interfaces as $interface) {
-        $name = $interface->getProperty('name');
-        // Menghapus karakter khusus < dan > dan tidak memasukkan interface PPPoE
-        $name = str_replace(['<', '>'], '', $name);
-        if (!str_contains($name, 'pppoe')) { // Cek apakah nama interface mengandung 'pppoe'
-            $interfaceList[] = ['name' => $name];
-        }
-    }
-    return $interfaceList;
+    // Mengembalikan total TX dan RX dalam bit per detik
+    return [
+        'tx' => $totalTx,
+        'rx' => $totalRx
+    ];
 }

@@ -31,7 +31,9 @@
               <th>
                 <select name="selectedNetworkInterface" id="selectedNetworkInterface" class="form-control custom-select" onchange="updateTrafficValues()">
                   {foreach from=$interfaces item=interface}
-                    <option value="{$interface.name|escape:'html'}">{$interface.name}</option>
+                    {if !strstr($interface.name, 'pppoe')} <!-- Tambahkan kondisi untuk menyaring 'pppoe' -->
+                      <option value="{$interface.name|escape:'html'}">{$interface.name}</option>
+                    {/if}
                   {/foreach}
                 </select>
               </th>

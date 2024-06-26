@@ -17,35 +17,53 @@
       text-align: center;
   }
 </style>
-<div class="container mt-5">
-  <div class="card">
-    <div class="card-header">
+<div class="container">
+    <div class="row">
+        <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
+            <!-- Form dan navigasi tabs -->
+            <form class="form-horizontal" method="post" role="form" action="{$_url}plugin/monitorRouterInterface">
+                <ul class="nav nav-tabs">
+                    {foreach $routers as $r}
+                    <li role="presentation" {if $r['id']==$router}class="active"{/if}>
+                        <a href="{$_url}plugin/monitorRouterInterface/{$r['id']}">{$r['name']}</a>
+                    </li>
+                    {/foreach}
+                </ul>
+            </form>
+            <div class="panel panel-default">
+                <div class="container mt-5">
+                    <div class="card">
+                        <div class="card-header">
+                        </div>
+                        <div class="card-body">
+                        <div class="form-group">
+                        </div>
+                        <div class="table-responsive mt-4">
+                            <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                <th>
+                                    <select name="selectedNetworkInterface" id="selectedNetworkInterface" class="form-control custom-select" onchange="updateTrafficValues()">
+                                    {foreach from=$interfaces item=interface}
+                                        {if !strstr($interface.name, 'pppoe') && !strstr($interface.name, 'ovpn') && !strstr($interface.name, 'l2tp') && !strstr($interface.name, 'vlan')} <!-- Tambahkan kondisi untuk menyaring 'pppoe', 'ovpn', 'l2tp', 'vlan' -->
+                                        <option value="{$interface.name|escape:'html'}">{$interface.name}</option>
+                                        {/if}
+                                    {/foreach}
+                                    </select>
+                                </th>
+                                    <th id="tabletx"><i class="fa fa-download"></i></th>
+                                    <th id="tablerx"><i class="fa fa-upload"></i></th>
+                                </tr>
+                            </thead>
+                            </table>
+                        </div>
+                         <div id="chart" class="content"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-      <div class="form-group">
-      </div>
-      <div class="table-responsive mt-4">
-        <table class="table table-bordered">
-          <thead>
-            <tr>
-              <th>
-                <select name="selectedNetworkInterface" id="selectedNetworkInterface" class="form-control custom-select" onchange="updateTrafficValues()">
-                  {foreach from=$interfaces item=interface}
-                    {if !strstr($interface.name, 'pppoe') && !strstr($interface.name, 'ovpn') && !strstr($interface.name, 'l2tp') && !strstr($interface.name, 'vlan')} <!-- Tambahkan kondisi untuk menyaring 'pppoe', 'ovpn', 'l2tp', 'vlan' -->
-                      <option value="{$interface.name|escape:'html'}">{$interface.name}</option>
-                    {/if}
-                  {/foreach}
-                </select>
-              </th>
-                  <th id="tabletx"><i class="fa fa-download"></i></th>
-                  <th id="tablerx"><i class="fa fa-upload"></i></th>
-            </tr>
-          </thead>
-        </table>
-      </div>
-      <div id="chart" class="mt-3" style="width: auto; height: 500px;"></div>
-    </div>
-  </div>
 </div>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -107,7 +125,7 @@
         },
         labels: {
           formatter: function(value) {
-            return formatBytes(value);
+            return monitorRouterFormatBytes(value);
           }
         }
       },
@@ -117,14 +135,14 @@
         },
         y: {
           formatter: function(value) {
-            return formatBytes(value) + 'ps';
+            return monitorRouterFormatBytes(value) + 'ps';
           }
         }
       },
       dataLabels: {
         enabled: true,
         formatter: function(value) {
-          return formatBytes(value);
+          return monitorRouterFormatBytes(value);
         }
       }
     };
@@ -132,7 +150,7 @@
     chart.render();
   }
 
-  function formatBytes(bytes) {
+  function monitorRouterFormatBytes(bytes) {
     if (bytes === 0) {
       return '0 B';
     }
@@ -146,7 +164,7 @@
 function updateTrafficValues() {
   var selectedInterface = $('#selectedNetworkInterface').val(); // Mengambil nilai interface yang dipilih
   $.ajax({
-    url: '{$_url}plugin/monitor_traffic/{$router}', // Pastikan URL ini sesuai dengan konfigurasi server Anda
+    url: '{$_url}plugin/monitorRouterTraffic/{$router}', // Pastikan URL ini sesuai dengan konfigurasi server Anda
     type: 'GET',
     dataType: 'json',
     data: {
@@ -185,8 +203,8 @@ function updateTrafficValues() {
         }
 
         // Memperbarui teks pada tabel TX dan RX dengan ikon
-        document.getElementById("tabletx").innerHTML = '<i class="fas fa-upload"></i>  ' + formatBytes(TX);
-        document.getElementById("tablerx").innerHTML = '<i class="fas fa-download"></i>  ' + formatBytes(RX);
+        document.getElementById("tabletx").innerHTML = '<i class="fas fa-upload"></i>  ' + monitorRouterFormatBytes(TX);
+        document.getElementById("tablerx").innerHTML = '<i class="fas fa-download"></i>  ' + monitorRouterFormatBytes(RX);
       } else {
         // Jika tidak ada data, set nilai ke 0
         document.getElementById("tabletx").textContent = 'TX: 0 B';
@@ -209,8 +227,7 @@ function updateTrafficValues() {
 <script>
   window.addEventListener('DOMContentLoaded', function() {
     var portalLink = "https://github.com/kevindoni";
-    $('#version').html('Interfacek Monitor | Ver: 1.0 | by: <a href="' + portalLink + '">Kevin Doni</a>');
+    $('#version').html('Interface Monitor | Ver: 1.0 | by: <a href="' + portalLink + '">Kevin Doni</a>');
   });
 </script>
-
 {include file="sections/footer.tpl"}
